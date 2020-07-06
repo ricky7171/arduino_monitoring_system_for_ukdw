@@ -9,6 +9,9 @@
 String currentDataQRCode = "";
 unsigned long timerHandlingNoData;
 
+/*********************
+  | EEPROM
+*********************/
 String nodeID;
 String nodeName;
 
@@ -31,10 +34,7 @@ void setup()
   printTextLcd("[1/4]", 0, true);
   printTextLcd("Set pin...", 20);
   Serial.println("[1/4] Set pin M0, M1, flag LED to output");
-  pinMode(pinM0, OUTPUT);
-  pinMode(pinM1, OUTPUT);
-  pinMode(32, OUTPUT);
-  digitalWrite(32, LOW);
+  setupPin();
   Serial.println("[1/4] Set pin M0, M1, flag LED is done !");
 
   //Connect to EEPROM from serial
@@ -46,19 +46,10 @@ void setup()
 
   updateEEPROMFromSerial();
 
-
+  //example EEPROM
   //nodeID#nodeName>
   //1#Ruang D.1.2>
-
-  Serial.println("[2/4] Read data from EEPROM");
-  String readData = EEPROM.readString(0);
-  Serial.println(readData);
-
-  nodeID = getValue(readData, '#', 0); Serial.print("NodeID     : "); Serial.println(nodeID);
-  nodeName = getValue(readData, '#', 1); Serial.print("nodeName: "); Serial.println(nodeName);
-
-  Serial.println("[2/4] Finish read data from EEPROM !");
-
+  updateSettingFromEEPROM();
   
 
 
@@ -66,22 +57,7 @@ void setup()
   printTextLcd("[3/4]", 0, true);
   printTextLcd("Setup Lora (10 sec)", 20);
   Serial.println("[3/4] Setup LoRa... (wait 10 sec)");
-  loraSerial.begin(9600, SERIAL_8N1, pinRX, pinTX);
-  
-  loraSerial.setTimeout(10);
-  clearLoraSerial();
-  clearSerial();
-  //loraSerial.flush();
-  //Serial.flush();
-  
-
-  //get adl and adh
-  int intNodeId = nodeID.toInt();
-  myAdl = intNodeId / 256;
-  myAdh = intNodeId % 256;
-
-  //set sleep mode in LoRa & setting parameter lora
-  setupParameterLoRa();
+  setupLoRa(nodeID.toInt());
   Serial.println("This LoRa address : " + String(myAdl) + " " + String(myAdh));
   Serial.println("[3/4] Setup LoRa has finished !");
 
@@ -202,7 +178,19 @@ void loop()
    ==== FUNCTIONS ====
 */
 
+/*
+  Update setting from EEPROM
+*/
+void updateSettingFromEEPROM(){
+  Serial.println("[2/4] Read data from EEPROM");
+  String readData = EEPROM.readString(0);
+  Serial.println(readData);
 
+  nodeID = getValue(readData, '#', 0); Serial.print("NodeID     : "); Serial.println(nodeID);
+  nodeName = getValue(readData, '#', 1); Serial.print("nodeName: "); Serial.println(nodeName);
+
+  Serial.println("[2/4] Finish read data from EEPROM !");
+}
 
 /*
    Message to other device
