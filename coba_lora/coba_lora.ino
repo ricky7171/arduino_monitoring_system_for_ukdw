@@ -14,6 +14,7 @@ unsigned long timerHandlingNoData;
 *********************/
 String nodeID;
 String nodeName;
+String myChannel;
 
 void setup()
 {
@@ -47,8 +48,8 @@ void setup()
   updateEEPROMFromSerial();
 
   //example EEPROM
-  //nodeID#nodeName>
-  //1#Ruang D.1.2>
+  //nodeID#nodeName#myChannel>
+  //1#Ruang D.1.2#23>
   updateSettingFromEEPROM();
   
 
@@ -58,7 +59,7 @@ void setup()
   printTextLcd("Setup Lora (10 sec)", 20);
   Serial.println("[3/4] Setup LoRa... (wait 10 sec)");
   setupLoRa(nodeID.toInt());
-  Serial.println("This LoRa address : " + String(myAdl) + " " + String(myAdh));
+  Serial.println("This LoRa address : " + String(myAdh) + " " + String(myAdl));
   Serial.println("[3/4] Setup LoRa has finished !");
 
   //setup qrcode
@@ -102,10 +103,10 @@ void loop()
     if (fromDevice == true)
     {
       //get sender from string message (3 byte)
-      //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS LOW) (myADDRESS HIGH) (myCHANNEL) (MESSAGE)
+      //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS HIGH) (myADDRESS LOW) (myCHANNEL) (MESSAGE)
       
-      byte addressLowSender = incomingString.charAt(3);
-      byte addressHighSender = incomingString.charAt(4);
+      byte addressHighSender = incomingString.charAt(3);
+      byte addressLowSender = incomingString.charAt(4);
       byte channelSender = incomingString.charAt(5);
       String message = incomingString.substring(6);
       Serial.println("message : " + message);
@@ -113,7 +114,7 @@ void loop()
       //send ack to sender
       if (incomingString.charAt(0) == 1) //if must send ack to sender
       {
-        sendMessage(addressLowSender, addressHighSender, channelSender, "Acknowledge", false);
+        sendMessage(addressHighSender, addressLowSender, channelSender, "Acknowledge", false);
       }
       currentDataQRCode = incomingString.substring(6);
       timerHandlingNoData = millis();
@@ -155,11 +156,13 @@ void loop()
     else if (input.startsWith("kirim pesan:"))
     {
       //get low address input
-      String stringMessage = input.substring(13);
-      String addressReceiver = input.substring(12,13);
-      Serial.println("kirim pesan ke adh: " + addressReceiver);
+      String stringMessage = input.substring(14);
+      String addressHighReceiver = input.substring(12,13);
+      String addressLowReceiver = input.substring(13,14);
+      Serial.println("kirim pesan ke adh: " + addressHighReceiver);
+      Serial.println("kirim pesan ke adl: " + addressLowReceiver);
       Serial.println("dengan pesan : " + stringMessage);
-      sendMessage(0, addressReceiver.toInt(), recChannel, stringMessage, true);
+      sendMessage(addressHighReceiver.toInt(), addressLowReceiver.toInt(), myChannel.toInt(), stringMessage, true);
     }
     else if (input.startsWith("mode normal"))
     {
@@ -188,6 +191,7 @@ void updateSettingFromEEPROM(){
 
   nodeID = getValue(readData, '#', 0); Serial.print("NodeID     : "); Serial.println(nodeID);
   nodeName = getValue(readData, '#', 1); Serial.print("nodeName: "); Serial.println(nodeName);
+  myChannel = getValue(readData, '#', 2);  Serial.print("My Channel: "); Serial.println(myChannel);
 
   Serial.println("[2/4] Finish read data from EEPROM !");
 }
@@ -195,12 +199,12 @@ void updateSettingFromEEPROM(){
 /*
    Message to other device
 */
-void sendMessage(byte adl, byte adh, byte channel, String msg, bool withAck)
+void sendMessage(byte adh, byte adl, byte channel, String msg, bool withAck)
 {
-  //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS LOW) (myADDRESS HIGH) (myCHANNEL) (MESSAGE)
+  //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS HIGH) (myADDRESS LOW) (myCHANNEL) (MESSAGE)
   //11 11 is a sign that it is a message from another device
   Serial.println("siap-siap kirim pesan !");
-  byte cmd[100] = {adl, adh, channel, withAck, 11, 11, myAdl, myAdh, myChannel};
+  byte cmd[100] = {adh, adl, channel, withAck, 11, 11, myAdh, myAdl, myChannel.toInt()};
   for (int i = 0; i < msg.length(); i++)
   {
     cmd[i + 9] = msg.charAt(i);
