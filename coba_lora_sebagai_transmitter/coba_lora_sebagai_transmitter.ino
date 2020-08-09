@@ -22,6 +22,7 @@ MQTTClient client;
 String strSSID;
 String strPASS;
 String gatewayId;
+String myChannel;
 String gatewayName;
 String strBrokerAdd;
 String usernameMQTT;
@@ -103,13 +104,13 @@ void messageReceived(String &topic, String &payload)
     //convert id node to adl and adh
     String tempIdNode = topic.substring(8);
     int idNode = tempIdNode.toInt();
-    //example : 2, AdlNode : 0, AdhNode : 2
-    //example : 300, AdlNode : 1, AdhNode : 44
-    byte AdlNode = idNode / 256;
-    byte AdhNode = idNode % 256;
+    //example : 2, AdhNode : 0, AdlNode : 2
+    //example : 300, AdhNode : 1, AdlNode : 44
+    byte AdhNode = idNode / 256;
+    byte AdlNode = idNode % 256;
 
     //forward to destination node
-    sendMessage(AdlNode, AdhNode, recChannel, payload, true);
+    sendMessage(AdhNode, AdlNode, myChannel.toInt(), payload, true);
     
     for(int i = 0;i<100;i++)
     {
@@ -152,8 +153,8 @@ void setup()
   //read data from eeprom
 
   //example EEPROM : 
-  //strSSID#strPASS#gatewayID#gatewayName#Broker_Add#usernameMQTT#passwordMQTT#gatewayNameMQTT>
-  //ricky#abcdefgh#3#Didaktos#broker.shiftr.io#samuelricky-skripsi-coba#sukukata123#skripsi-coba>
+  //strSSID#strPASS#gatewayID#myChannel#gatewayName#Broker_Add#usernameMQTT#passwordMQTT#gatewayNameMQTT>
+  //ricky#abcdefgh#3#23#Didaktos#broker.shiftr.io#samuelricky-skripsi-coba#sukukata123#skripsi-coba>
 
   updateSettingFromEEPROM();
 
@@ -200,13 +201,13 @@ void loop()
     if (fromDevice == true)
     {
       //get sender from string message (3 byte)
-      //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS LOW) (myADDRESS HIGH) (myCHANNEL) (MESSAGE)
-      byte addressLowSender = incomingString.charAt(3);
-      byte addressHighSender = incomingString.charAt(4);
+      //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS HIGH) (myADDRESS LOW) (myCHANNEL) (MESSAGE)
+      byte addressHighSender = incomingString.charAt(3);
+      byte addressLowSender = incomingString.charAt(4);
       byte channelSender = incomingString.charAt(5);
       String message = incomingString.substring(6);
       Serial.println(message);
-      int idNode = (addressLowSender * 256) + addressHighSender;
+      int idNode = (addressHighSender * 256) + addressLowSender;
       for(int i = 0;i<100;i++)
       {
         if(acknowledgeTemporary[i][0] == idNode)
@@ -250,23 +251,21 @@ void loop()
     else if (input.startsWith("kirim pesan:")) 
     {
       //get low address input
-      String stringMessage = input.substring(13);
-      String addressReceiver = input.substring(12,13);
-      Serial.println("kirim pesan ke adh: " + addressReceiver);
+      String stringMessage = input.substring(14);
+      String addressHighReceiver = input.substring(12,13);
+      String addressLowReceiver = input.substring(13,14);
+      Serial.println("kirim pesan ke adh: " + addressHighReceiver);
+      Serial.println("kirim pesan ke adl: " + addressLowReceiver);
       Serial.println("dengan pesan : " + stringMessage);
-      sendMessage(0, addressReceiver.toInt(), recChannel, stringMessage, true);
+      sendMessage(addressHighReceiver.toInt(), addressLowReceiver.toInt(), myChannel.toInt(), stringMessage, true);
     }
     else if (input.startsWith("mode normal"))
     {
-      Serial.println("Mode normal !");
-      digitalWrite(pinM0, LOW); //M0
-      digitalWrite(pinM1, LOW); //M1
+      setMode("normal");
     }
     else if (input.startsWith("mode sleep"))
     {
-      Serial.println("Mode sleep !");
-      digitalWrite(pinM0, HIGH); //M0
-      digitalWrite(pinM1, HIGH); //M1
+      setMode("sleep");
     }
   }
 
@@ -280,13 +279,13 @@ void loop()
 /*
    Message to other device
 */
-void sendMessage(byte adl, byte adh, byte channel, String msg, bool withAck)
+void sendMessage(byte adh, byte adl, byte channel, String msg, bool withAck)
 {
-  //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS LOW) (myADDRESS HIGH) (myCHANNEL) (MESSAGE)
+  //format message : (WITH ACK OR NOT (1 / 0)) 11 11 (myADDRESS HIGH) (myADDRESS LOW) (myCHANNEL) (MESSAGE)
   //11 11 is a sign that it is a message from another device
   Serial.println("siap-siap kirim pesan !");
 
-  byte cmd[100] = {adl, adh, channel, withAck, 11, 11, myAdl, myAdh, myChannel};
+  byte cmd[100] = {adh, adl, channel, withAck, 11, 11, myAdh, myAdl, myChannel.toInt()};
   for (int i = 0; i < msg.length(); i++)
   {
     cmd[i + 9] = msg.charAt(i);
@@ -316,11 +315,12 @@ void updateSettingFromEEPROM(){
   strSSID = getValue(readData, '#', 0); Serial.print("SSID     : "); Serial.println(strSSID);
   strPASS = getValue(readData, '#', 1); Serial.print("PASS SSID: "); Serial.println(strPASS);
   gatewayId = getValue(readData, '#', 2);  Serial.print("Gateway ID number: "); Serial.println(gatewayId);
-  gatewayName = getValue(readData, '#', 3);  Serial.print("Gateway Name: "); Serial.println(gatewayName);
-  strBrokerAdd = getValue(readData, '#', 4); Serial.print("Broker Address: "); Serial.println(strBrokerAdd);
-  usernameMQTT = getValue(readData, '#', 5); Serial.print("username      : "); Serial.println(usernameMQTT);
-  passwordMQTT = getValue(readData, '#', 6); Serial.print("password      : "); Serial.println(passwordMQTT);
-  nameMQTT = getValue(readData, '#', 7); Serial.print("client name   : "); Serial.println(nameMQTT);
+  myChannel = getValue(readData, '#', 3);  Serial.print("My Channel: "); Serial.println(myChannel);
+  gatewayName = getValue(readData, '#', 4);  Serial.print("Gateway Name: "); Serial.println(gatewayName);
+  strBrokerAdd = getValue(readData, '#', 5); Serial.print("Broker Address: "); Serial.println(strBrokerAdd);
+  usernameMQTT = getValue(readData, '#', 6); Serial.print("username      : "); Serial.println(usernameMQTT);
+  passwordMQTT = getValue(readData, '#', 7); Serial.print("password      : "); Serial.println(passwordMQTT);
+  nameMQTT = getValue(readData, '#', 8); Serial.print("client name   : "); Serial.println(nameMQTT);
 
   Serial.println("[2/6] Finish read data from EEPROM ! Set Wifi username & pass and set broker mqtt client");
   printTextLcd("[2/6]", 0, true);
@@ -347,7 +347,7 @@ void clearAcknowledge(){
     acknowledgeTemporary[i][1] = -1;
     acknowledgeTemporary[i][2] = -1;
   }
-  Serial.println("This LoRa address : " + String(myAdl) + " " + String(myAdh));
+  Serial.println("This LoRa address : " + String(myAdh) + " " + String(myAdl));
 
   delay(5000);
 }
@@ -433,11 +433,11 @@ void sendAllAcknowledgeToServer(){
       String timeData = String(acknowledgeTemporary[i][2]);
       if(sentData == "-1") //if not any acknowledge from node (failed send)
       {
-        logAcknowledge(roomidData,"0","0");  
+        //logAcknowledge(roomidData,"0","0");  
       }
       else
       {
-        logAcknowledge(roomidData,sentData,timeData); 
+        //logAcknowledge(roomidData,sentData,timeData); 
       }
       acknowledgeTemporary[i][0] = -1;
       acknowledgeTemporary[i][1] = -1;
