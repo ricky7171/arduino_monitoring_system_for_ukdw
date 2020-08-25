@@ -94,10 +94,10 @@ void messageReceived(String &topic, String &payload)
     printGatewayText(gatewayId, gatewayName, "connected to node", strListNode);
 
     //start tracking acknowledge from node
-    if(timeAcknowledgePost == 0)
-    {
-      timeAcknowledgePost = millis();
-    }
+//    if(timeAcknowledgePost == 0)
+//    {
+//      timeAcknowledgePost = millis();
+//    }
   }
   else if (topic.startsWith("/qrcode/")) //if message receive is qrcode
   {
@@ -174,19 +174,19 @@ void loop()
 {
   client.loop();
   
-  if(millis() - timeAcknowledgePost > 5000 && timeAcknowledgePost != 0) //if 5 second, then send all acknowledge to server
-  {
-    sendAllAcknowledgeToServer();
-  }
+//  if(millis() - timeAcknowledgePost > 5000 && timeAcknowledgePost != 0) //if 5 second, then send all acknowledge to server
+//  {
+//    sendAllAcknowledgeToServer();
+//  }
 
   if (loraSerial.available())
   {
     Serial.println("incoming message !!");
 
-    Serial.println("difference time : ");
-    int differenceTimeMillis = millis() - timePeriodTestMillis;
-    int differenceTimeMicros = micros() - timePeriodTestMicros;
-    Serial.println(differenceTimeMillis);
+//    Serial.println("difference time : ");
+//    int differenceTimeMillis = millis() - timePeriodTestMillis;
+//    int differenceTimeMicros = micros() - timePeriodTestMicros;
+//    Serial.println(differenceTimeMillis);
 
         
     String incomingString = "";
@@ -208,15 +208,15 @@ void loop()
       String message = incomingString.substring(6);
       Serial.println(message);
       int idNode = (addressHighSender * 256) + addressLowSender;
-      for(int i = 0;i<100;i++)
-      {
-        if(acknowledgeTemporary[i][0] == idNode)
-        {
-          acknowledgeTemporary[i][1] = 1;
-          acknowledgeTemporary[i][2] = differenceTimeMicros;
-          break;
-        }
-      }
+//      for(int i = 0;i<100;i++)
+//      {
+//        if(acknowledgeTemporary[i][0] == idNode)
+//        {
+//          acknowledgeTemporary[i][1] = 1;
+//          acknowledgeTemporary[i][2] = differenceTimeMicros;
+//          break;
+//        }
+//      }
       
     }
     else
@@ -285,7 +285,7 @@ void sendMessage(byte adh, byte adl, byte channel, String msg, bool withAck)
   //11 11 is a sign that it is a message from another device
   Serial.println("siap-siap kirim pesan !");
 
-  byte cmd[100] = {adh, adl, channel, withAck, 11, 11, myAdh, myAdl, myChannel.toInt()};
+  byte cmd[100] = {adh, adl, channel, withAck, 11, 11, myAdh, myAdl, (myChannel.toInt())};
   for (int i = 0; i < msg.length(); i++)
   {
     cmd[i + 9] = msg.charAt(i);
